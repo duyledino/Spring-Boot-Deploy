@@ -5,6 +5,10 @@ import com.kimlongdev.shopme_backend.entity.seller.Seller;
 import com.kimlongdev.shopme_backend.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "chats", uniqueConstraints = {
@@ -30,4 +34,8 @@ public class Chat extends BaseEntity {
 
     @OneToMany(mappedBy = "chat", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ChatMessage> messages;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    protected LocalDateTime updatedAt;
 }

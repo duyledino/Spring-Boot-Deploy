@@ -24,8 +24,7 @@ public class Transaction {
     private Long transactionId;
 
     @Id
-    @CreationTimestamp
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -47,4 +46,11 @@ public class Transaction {
     private String type; // DEPOSIT, WITHDRAW, PAYMENT
 
     private String description;
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }

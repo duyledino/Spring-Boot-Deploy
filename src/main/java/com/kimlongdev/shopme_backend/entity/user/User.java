@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.util.List;
+
 @Entity
 @Table(name = "users", indexes = {
         @Index(name = "idx_user_lookup", columnList = "email, mobile")

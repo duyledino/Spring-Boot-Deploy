@@ -4,6 +4,8 @@ import com.kimlongdev.shopme_backend.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.List;
+
 @Entity
 @Table(name = "carts")
 @Getter

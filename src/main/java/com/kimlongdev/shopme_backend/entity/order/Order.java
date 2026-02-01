@@ -29,9 +29,7 @@ public class Order {
     private Long orderId;
 
     @Id
-    @CreationTimestamp
-    @Column(name = "created_at", insertable = false, updatable = false)
-    // insertable=false vì DB tự generate timestamp, nhưng cần map để JPA biết là PK
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "order_code", nullable = false)
@@ -62,4 +60,11 @@ public class Order {
     // nhưng tốt nhất OrderItem nên giữ tham chiếu Order
     @OneToMany(mappedBy = "order", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<OrderItem> items;
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
 }
