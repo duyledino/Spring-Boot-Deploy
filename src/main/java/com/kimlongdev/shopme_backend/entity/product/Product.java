@@ -2,6 +2,7 @@ package com.kimlongdev.shopme_backend.entity.product;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.kimlongdev.shopme_backend.entity.seller.Seller;
+import com.kimlongdev.shopme_backend.util.Enum.ProductStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -53,7 +54,7 @@ public class Product {
     private Boolean inventoryStatus = true;
 
     @Builder.Default
-    private String status = "ACTIVE";
+    private String status = String.valueOf(ProductStatus.ACTIVE);
 
     // JSONB MAPPING
     @JdbcTypeCode(SqlTypes.JSON)

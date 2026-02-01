@@ -2,6 +2,7 @@ package com.kimlongdev.shopme_backend.entity.order;
 
 import com.kimlongdev.shopme_backend.entity.seller.Seller;
 import com.kimlongdev.shopme_backend.entity.user.User;
+import com.kimlongdev.shopme_backend.util.Enum.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -53,7 +54,7 @@ public class Order {
     private BigDecimal totalAmount;
 
     @Column(name = "status")
-    private String status;
+    private String status = String.valueOf(OrderStatus.PENDING);
 
     // Relationships
     // Lưu ý: OrderItem cần join qua orderId, JPA 6 thông minh có thể xử lý partial join
