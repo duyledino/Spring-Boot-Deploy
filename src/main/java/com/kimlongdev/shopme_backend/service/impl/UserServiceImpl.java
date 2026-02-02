@@ -52,6 +52,7 @@ public class UserServiceImpl implements UserService {
 
         User newUser = User.builder()
                 .fullName(guest.getFullName())
+                .mobile(guest.getMobile())
                 .email(guest.getEmail())
                 .password(passwordEncoder.encode(guest.getPassword()))
                 .role(String.valueOf(USER_ROLE.ROLE_CUSTOMER))
