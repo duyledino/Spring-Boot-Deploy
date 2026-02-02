@@ -1,0 +1,87 @@
+package com.kimlongdev.shopme_backend.controller;
+
+import com.kimlongdev.shopme_backend.dto.request.OtpRequest;
+import com.kimlongdev.shopme_backend.dto.request.RegisterRequest;
+import com.kimlongdev.shopme_backend.dto.response.ApiResponse;
+import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
+import com.kimlongdev.shopme_backend.exception.BusinessException;
+import com.kimlongdev.shopme_backend.service.AuthService;
+import com.kimlongdev.shopme_backend.service.OtpService;
+import com.kimlongdev.shopme_backend.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/auth")
+public class AuthController {
+
+    private final UserService userService;
+    private final OtpService otpService;
+    private final AuthService authService;
+
+    @PostMapping("/register-otp")
+    public ResponseEntity<ApiResponse<Object>> registerOtp(
+            @Valid @RequestBody OtpRequest req) {
+        if(userService.existsUserByEmail(req.getEmail())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "EMAIL_ALREADY_IN_USE", "Email đã được sử dụng"));
+        } else {
+            otpService.generateAndSendOtp(req.getEmail());
+
+            return ResponseEntity.ok(
+                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+            );
+        }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<LoginResponse>> register(
+            @Valid @RequestBody RegisterRequest request
+    ) throws BusinessException {
+
+        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
+
+        if (!checkOTP) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
+        }
+        LoginResponse result = authService.register(request);
+        return ResponseEntity.ok(ApiResponse.success(result, "Đăng ký thành công"));
+    }
+//
+//    @PostMapping("/login")
+//    public ResponseEntity<ApiResponse<LoginResponse>> login(
+//            @Valid @RequestBody LoginRequest request,
+//            HttpServletResponse response
+//    ) {
+//        LoginResponse result = authService.login(request, response);
+//        return ResponseEntity.ok(ApiResponse.success(result, "Đăng nhập thành công"));
+//    }
+//
+//    @GetMapping("/refresh-token")
+//    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(
+//            @CookieValue(name = "refresh_token", defaultValue = "Missing Token") String refreshToken,
+//            HttpServletResponse response
+//    ) {
+//        LoginResponse result = authService.refreshToken(refreshToken, response);
+//        return ResponseEntity.ok(ApiResponse.success(result, "Lấy token mới thành công"));
+//    }
+//
+//    @PostMapping("/logout")
+//    public ResponseEntity<ApiResponse<Void>> logout(
+//            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken,
+//            HttpServletResponse response
+//    ) {
+//        authService.logout(refreshToken, response);
+//        return ResponseEntity.ok(ApiResponse.success(null, "Đăng xuất thành công"));
+//    }
+//
+//    @GetMapping("/account")
+//    public ResponseEntity<ApiResponse<LoginResponse.UserGetAccount>> getAccount() {
+//        return ResponseEntity.ok(ApiResponse.success(authService.getMyAccount()));
+//    }
+}

@@ -1,6 +1,7 @@
 package com.kimlongdev.shopme_backend.dto.response;
 
 import lombok.*;
+import org.springframework.http.HttpStatus;
 
 @Getter
 @Setter
