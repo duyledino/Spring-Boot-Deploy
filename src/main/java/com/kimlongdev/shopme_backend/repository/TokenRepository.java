@@ -10,6 +10,16 @@ import java.util.Optional;
 
 @Repository
 public interface TokenRepository extends JpaRepository<Token, Long> {
+
+    // JOIN FETCH bảo Hibernate:
+    // "Khi tìm Token, làm ơn lấy luôn cả thằng User đi kèm giúp tao trong cùng 1 lần query".
+    // Nhờ đó, dù Session có đóng, data User đã nằm sẵn trong object rồi,
+    // không cần query lại nữa.
+    @Query("""
+        SELECT t FROM Token t
+        INNER JOIN FETCH t.user u
+        WHERE t.refreshToken = :refreshToken
+    """)
     Optional<Token> findByRefreshToken(String refreshToken);
 
     @Query("""

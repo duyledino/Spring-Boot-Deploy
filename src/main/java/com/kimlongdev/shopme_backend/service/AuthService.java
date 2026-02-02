@@ -9,4 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public interface AuthService {
     LoginResponse login(LoginRequest request, HttpServletResponse response) throws Exception;
     LoginResponse register(RegisterRequest request) throws BusinessException;
+    void logout(String refreshToken, HttpServletResponse response);
+    LoginResponse refreshToken(String refreshToken, HttpServletResponse response) throws BusinessException;
+    LoginResponse.UserGetAccount getMyAccount() throws Exception;
 }

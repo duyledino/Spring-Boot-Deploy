@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,6 +25,7 @@ public class AuthController {
     private final UserService userService;
     private final OtpService otpService;
     private final AuthService authService;
+    private final com.kimlongdev.shopme_backend.util.SecurityUtil securityUtil;
 
     @PostMapping("/register-otp")
     public ResponseEntity<ApiResponse<Object>> registerOtp(
@@ -86,26 +88,27 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(result, "Đăng nhập thành công"));
     }
 
-//    @GetMapping("/refresh-token")
-//    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(
-//            @CookieValue(name = "refresh_token", defaultValue = "Missing Token") String refreshToken,
-//            HttpServletResponse response
-//    ) {
-//        LoginResponse result = authService.refreshToken(refreshToken, response);
-//        return ResponseEntity.ok(ApiResponse.success(result, "Lấy token mới thành công"));
-//    }
-//
-//    @PostMapping("/logout")
-//    public ResponseEntity<ApiResponse<Void>> logout(
-//            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken,
-//            HttpServletResponse response
-//    ) {
-//        authService.logout(refreshToken, response);
-//        return ResponseEntity.ok(ApiResponse.success(null, "Đăng xuất thành công"));
-//    }
-//
-//    @GetMapping("/account")
-//    public ResponseEntity<ApiResponse<LoginResponse.UserGetAccount>> getAccount() {
-//        return ResponseEntity.ok(ApiResponse.success(authService.getMyAccount()));
-//    }
+    @GetMapping("/refresh-token")
+    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(
+            @CookieValue(name = "refresh_token", defaultValue = "Missing Token") String refreshToken,
+            HttpServletResponse response
+    ) throws BusinessException {
+
+        LoginResponse result = authService.refreshToken(refreshToken, response);
+        return ResponseEntity.ok(ApiResponse.success(result, "Lấy token mới thành công"));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken,
+            HttpServletResponse response
+    ) {
+        authService.logout(refreshToken, response);
+        return ResponseEntity.ok(ApiResponse.success(null, "Đăng xuất thành công"));
+    }
+
+    @GetMapping("/account")
+    public ResponseEntity<ApiResponse<LoginResponse.UserGetAccount>> getAccount() throws Exception {
+        return ResponseEntity.ok(ApiResponse.success(authService.getMyAccount()));
+    }
 }

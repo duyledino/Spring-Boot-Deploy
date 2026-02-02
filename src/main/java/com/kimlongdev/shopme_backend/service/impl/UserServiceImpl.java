@@ -1,20 +1,13 @@
 package com.kimlongdev.shopme_backend.service.impl;
 
 import com.kimlongdev.shopme_backend.dto.request.RegisterRequest;
-import com.kimlongdev.shopme_backend.dto.response.ApiResponse;
-import com.kimlongdev.shopme_backend.entity.cart.Cart;
 import com.kimlongdev.shopme_backend.entity.user.User;
-import com.kimlongdev.shopme_backend.entity.user.UserStat;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
-import com.kimlongdev.shopme_backend.repository.CartRepository;
 import com.kimlongdev.shopme_backend.repository.UserRepository;
-import com.kimlongdev.shopme_backend.repository.UserStatRepository;
 import com.kimlongdev.shopme_backend.service.CartService;
-import com.kimlongdev.shopme_backend.service.TokenService;
 import com.kimlongdev.shopme_backend.service.UserService;
 import com.kimlongdev.shopme_backend.service.UserStatService;
 import com.kimlongdev.shopme_backend.util.Enum.USER_ROLE;
-import com.kimlongdev.shopme_backend.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,7 +40,11 @@ public class UserServiceImpl implements UserService {
     @Transactional(rollbackFor = Exception.class)
     public User createUser(RegisterRequest guest) throws BusinessException {
         if (userRepository.existsByEmail(guest.getEmail())) {
-            throw new BusinessException(ApiResponse.error(400, "EMAIL_EXISTS", "Email đã được sử dụng"));
+            throw new BusinessException(
+                    "EMAIL_EXISTS",
+                    "Email đã được sử dụng",
+                    400
+            );
         }
 
         User newUser = User.builder()

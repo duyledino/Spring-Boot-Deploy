@@ -117,13 +117,28 @@ public class SecurityUtil {
     private static String extractPrincipal(Authentication authentication) {
         if (authentication == null) {
             return null;
-        } else if (authentication.getPrincipal() instanceof UserDetails springSecurityUser) {
+        }
+
+        Object principal = authentication.getPrincipal();
+
+        // 1. Trường hợp đăng nhập cơ bản (UserDetails)
+        if (principal instanceof UserDetails springSecurityUser) {
             return springSecurityUser.getUsername();
-        } else if (authentication.getPrincipal() instanceof Jwt jwt) {
+        }
+
+        // 2. Trường hợp dùng JWT (Oauth2 Resource Server)
+        else if (principal instanceof Jwt jwt) {
             return jwt.getSubject(); // Lấy từ claim "sub" (email)
-        } else if (authentication.getPrincipal() instanceof String s) {
+        }
+
+        // 3. Trường hợp String (Cần lọc bỏ anonymousUser)
+        else if (principal instanceof String s) {
+            if ("anonymousUser".equals(s)) {
+                return null;
+            }
             return s;
         }
+
         return null;
     }
 

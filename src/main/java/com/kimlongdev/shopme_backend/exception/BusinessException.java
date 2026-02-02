@@ -1,7 +1,21 @@
 package com.kimlongdev.shopme_backend.exception;
 
-public class BusinessException extends Exception {
-    public BusinessException(Object message) {
-        super((String) message);
+import lombok.Getter;
+
+@Getter
+public class BusinessException extends RuntimeException {
+    private final String errorCode;
+
+    // 400: Bad Request
+    // 401: Unauthorized
+    // 403: Forbidden
+    // 404: Not Found
+    // 500: Internal Server Error
+    private final int statusCode;
+
+    public BusinessException(String errorCode, String message, int statusCode) {
+        super(message);
+        this.errorCode = errorCode;
+        this.statusCode = statusCode;
     }
 }

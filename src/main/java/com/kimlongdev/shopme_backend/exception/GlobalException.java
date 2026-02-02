@@ -4,6 +4,7 @@ import com.kimlongdev.shopme_backend.dto.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -95,6 +96,32 @@ public class GlobalException {
                         403,
                         "ACCOUNT_DISABLED",
                         "Tài khoản đã bị vô hiệu hóa"
+                ));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDenied(
+            AccessDeniedException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(
+                        403,
+                        "FORBIDDEN",
+                        "Bạn không có quyền truy cập tài nguyên này"
+                ));
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBusinessException(
+            BusinessException ex
+    ) {
+        return ResponseEntity
+                .status(ex.getStatusCode())
+                .body(ApiResponse.error(
+                        ex.getStatusCode(),
+                        ex.getErrorCode(),
+                        ex.getMessage()
                 ));
     }
 
