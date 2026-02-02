@@ -4,6 +4,8 @@ import com.kimlongdev.shopme_backend.dto.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -67,4 +69,33 @@ public class GlobalException {
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
     }
+
+    // Handle BadCredentialsException (Sai email/mật khẩu)
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Object>> handleBadCredentials(
+            BadCredentialsException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(
+                        401,
+                        "INVALID_CREDENTIALS",
+                        "Email hoặc mật khẩu không đúng"
+                ));
+    }
+
+    // Handle DisabledException (Tài khoản bị vô hiệu hóa)
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResponse<Object>> handleDisabledAccount(
+            DisabledException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(
+                        403,
+                        "ACCOUNT_DISABLED",
+                        "Tài khoản đã bị vô hiệu hóa"
+                ));
+    }
+
 }
