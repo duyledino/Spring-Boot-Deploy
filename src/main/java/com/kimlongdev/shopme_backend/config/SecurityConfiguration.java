@@ -35,7 +35,7 @@ import java.util.Collections;
 @Configuration
 @EnableMethodSecurity(securedEnabled = true)
 @RequiredArgsConstructor
-public class AppConfig {
+public class SecurityConfiguration {
     @Value("${app.jwt.secret-key}")
     private String jwtKey;
 
