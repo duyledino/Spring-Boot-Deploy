@@ -7,9 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -30,7 +31,6 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.Arrays;
-import java.util.Collections;
 
 @Configuration
 @EnableMethodSecurity(securedEnabled = true)
@@ -38,6 +38,8 @@ import java.util.Collections;
 public class SecurityConfiguration {
     @Value("${app.jwt.secret-key}")
     private String jwtKey;
+
+    private final Environment env;
 
     private SecretKey getSecretKey() {
         byte[] keyBytes = Base64.from(jwtKey).decode();
@@ -58,16 +60,42 @@ public class SecurityConfiguration {
     public CorsConfigurationSource corsConfigurationSource() {
         return request -> {
             CorsConfiguration config = new CorsConfiguration();
+
+            // Origins
             config.setAllowedOrigins(Arrays.asList(
                     "http://localhost:8080",
                     "http://localhost:3000",
-                    "http://localhost:5173"));
-            //config.setAllowedOrigins(Collections.singletonList("*")); // Allow all domains
-            config.setAllowedMethods(Collections.singletonList("*")); // Allow all HTTP methods
-            config.setAllowedHeaders(Collections.singletonList("*")); // Allow all headers
-            config.setAllowCredentials(true ); // Allow sending cookies
-            config.setExposedHeaders(Collections.singletonList("Authorization")); // Frontend can read the Authorization header
-            config.setMaxAge(3600L); // Cache preflight response for 1 hour
+                    "http://localhost:5173",
+                    "https://shop-me2-0-fe-u5cm.vercel.app"
+            ));
+
+            // Methods: Chỉ cho phép các method RESTful chuẩn
+            config.setAllowedMethods(Arrays.asList(
+                    "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+            ));
+
+            // Headers: Cho phép các header cần thiết
+            config.setAllowedHeaders(Arrays.asList(
+                    "Authorization",
+                    "Content-Type",
+                    "X-Requested-With",
+                    "Accept",
+                    "Origin",
+                    "Access-Control-Request-Method",
+                    "Access-Control-Request-Headers"
+            ));
+
+            // Credentials: Cho phép gửi Cookie/Auth Header
+            config.setAllowCredentials(true);
+
+            // Exposed Headers: Để Frontend đọc được Token trả về (nếu có)
+            config.setExposedHeaders(Arrays.asList(
+                    "Authorization",
+                    "Content-Disposition" // download file
+            ));
+
+            // Cache: Cache lại config này trong 1 giờ
+            config.setMaxAge(3600L);
 
             return config;
         };
@@ -76,39 +104,61 @@ public class SecurityConfiguration {
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        grantedAuthoritiesConverter.setAuthorityPrefix("");
+        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
         grantedAuthoritiesConverter.setAuthoritiesClaimName("scope");
 
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
         return jwtAuthenticationConverter;
     }
-    @Bean
-    @Order(1)
-    public SecurityFilterChain authFilterChain(HttpSecurity http) throws Exception {
-        http
-                .securityMatcher("/api/v1/auth/**", "/api/products/*/review")
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        return http.build();
-    }
 
     @Bean
-    @Order(2)
-    public SecurityFilterChain securedFilterChain(HttpSecurity http, CustomAuthenticationEntryPoint customAuthenticationEntryPoint) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CustomAuthenticationEntryPoint customAuthenticationEntryPoint
+    ) throws Exception {
+
+        boolean isDev = Arrays.asList(env.getActiveProfiles()).contains("dev");
+
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
                 .authorizeHttpRequests(auth -> auth
+                        // 1. PUBLIC
+                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/products/**",
+                                "/api/categories/**",
+                                "/api/brands/**"
+                        ).permitAll()
+
+                        // 2. SWAGGER (DEV ONLY)
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).access((authentication, context) -> new AuthorizationDecision(isDev))
+
+                        // 3. ADMIN / SELLER (Role Based)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/seller/**").hasRole("SELLER")
+
+                        // 4. AUTHENTICATED
                         .requestMatchers("/api/**").authenticated()
+
+                        // 5. OTHERS
                         .anyRequest().permitAll()
                 )
+
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(Customizer.withDefaults())
+                        .jwt(jwt -> jwt
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
+                        )
                         .authenticationEntryPoint(customAuthenticationEntryPoint)
-                )
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                );
+
         return http.build();
     }
 
