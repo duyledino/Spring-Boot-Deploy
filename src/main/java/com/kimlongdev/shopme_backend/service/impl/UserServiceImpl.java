@@ -63,8 +63,6 @@ public class UserServiceImpl implements UserService {
         // 5. Tạo UserStats đi kèm (Bắt buộc)
         userStatService.createUserStat(savedUser);
 
-
-
         return savedUser;
     }
 

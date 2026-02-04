@@ -66,7 +66,7 @@ public class SecurityConfiguration {
                     "http://localhost:8080",
                     "http://localhost:3000",
                     "http://localhost:5173",
-                    "https://shop-me2-0-fe-u5cm.vercel.app"
+                    "https://shop-me2-0-fe.vercel.app"
             ));
 
             // Methods: Chỉ cho phép các method RESTful chuẩn
