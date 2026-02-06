@@ -1,6 +1,6 @@
 package com.kimlongdev.shopme_backend.config;
 
-import com.kimlongdev.shopme_backend.util.SecurityUtil;
+import com.kimlongdev.shopme_backend.util.SecurityUtils;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class SecurityConfiguration {
 
     private SecretKey getSecretKey() {
         byte[] keyBytes = Base64.from(jwtKey).decode();
-        return new SecretKeySpec(keyBytes, 0, keyBytes.length, SecurityUtil.JWT_ALGORITHM.getName());
+        return new SecretKeySpec(keyBytes, 0, keyBytes.length, SecurityUtils.JWT_ALGORITHM.getName());
     }
 
     @Bean
@@ -175,7 +175,7 @@ public class SecurityConfiguration {
     @Bean
     public JwtDecoder jwtDecoder() {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
-                getSecretKey()).macAlgorithm(SecurityUtil.JWT_ALGORITHM).build();
+                getSecretKey()).macAlgorithm(SecurityUtils.JWT_ALGORITHM).build();
         return token -> {
             try {
                 return jwtDecoder.decode(token);
