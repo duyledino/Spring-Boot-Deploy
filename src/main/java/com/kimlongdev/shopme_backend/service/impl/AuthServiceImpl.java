@@ -2,14 +2,18 @@ package com.kimlongdev.shopme_backend.service.impl;
 
 import com.kimlongdev.shopme_backend.dto.request.LoginRequest;
 import com.kimlongdev.shopme_backend.dto.request.RegisterRequest;
+import com.kimlongdev.shopme_backend.dto.request.SocialLoginRequest;
 import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
+import com.kimlongdev.shopme_backend.entity.user.SocialAccount;
 import com.kimlongdev.shopme_backend.entity.user.Token;
 import com.kimlongdev.shopme_backend.entity.user.User;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
 import com.kimlongdev.shopme_backend.service.AuthService;
+import com.kimlongdev.shopme_backend.service.SocialAccountService;
 import com.kimlongdev.shopme_backend.service.TokenService;
 import com.kimlongdev.shopme_backend.service.UserService;
-import com.kimlongdev.shopme_backend.util.SecurityUtil;
+import com.kimlongdev.shopme_backend.util.GoogleUtils;
+import com.kimlongdev.shopme_backend.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +25,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -28,7 +34,9 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final UserService userService;
     private final TokenService tokenService;
-    private final SecurityUtil securityUtil;
+    private final SecurityUtils securityUtils;
+    private final GoogleUtils googleUtils;
+    private final SocialAccountService socialAccountService;
 
     // --- 1. LOGIN ---
     @Override
@@ -43,8 +51,8 @@ public class AuthServiceImpl implements AuthService {
         User user = userService.findUserByEmail(request.getEmail());
 
         // Sinh Token
-        String accessToken = securityUtil.createAccessToken(user);
-        String refreshToken = securityUtil.createRefreshToken(user);
+        String accessToken = securityUtils.createAccessToken(user);
+        String refreshToken = securityUtils.createRefreshToken(user);
 
         // Lưu Refresh Token vào bảng 'tokens'
         tokenService.saveRefreshToken(user, refreshToken);
@@ -70,8 +78,8 @@ public class AuthServiceImpl implements AuthService {
         User user = userService.createUser(request);
 
         // 2. Tự động sinh Token (Auto Login)
-        String accessToken = securityUtil.createAccessToken(user);
-        String refreshToken = securityUtil.createRefreshToken(user);
+        String accessToken = securityUtils.createAccessToken(user);
+        String refreshToken = securityUtils.createRefreshToken(user);
 
         tokenService.saveRefreshToken(user, refreshToken);
 
@@ -114,8 +122,8 @@ public class AuthServiceImpl implements AuthService {
         tokenService.rotateRefreshToken(storedToken);
 
         User user = storedToken.getUser();
-        String newAccessToken = securityUtil.createAccessToken(user);
-        String newRefreshToken = securityUtil.createRefreshToken(user);
+        String newAccessToken = securityUtils.createAccessToken(user);
+        String newRefreshToken = securityUtils.createRefreshToken(user);
 
         tokenService.saveRefreshToken(user, newRefreshToken);
         tokenService.setRefreshTokenCookie(response, newRefreshToken);
@@ -147,7 +155,7 @@ public class AuthServiceImpl implements AuthService {
     // --- GET ACCOUNT ---
     @Override
     public LoginResponse.UserGetAccount getMyAccount() throws Exception {
-        String email = SecurityUtil.getCurrentUserLogin()
+        String email = SecurityUtils.getCurrentUserLogin()
                 .filter(username -> !username.equals("anonymousUser"))
                 .orElseThrow(() -> new BusinessException(
                         "UNAUTHORIZED",
@@ -157,5 +165,70 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userService.findUserByEmail(email);
         return new LoginResponse.UserGetAccount(LoginResponse.UserInfo.fromEntity(user));
+    }
+
+    @Transactional
+    public LoginResponse loginWithGoogle(SocialLoginRequest request) {
+        try {
+            // Verify Token
+            var payload = googleUtils.verifyToken(request.getToken());
+            if (payload == null)
+                throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400);
+
+            String providerId = payload.getSubject();
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            String pictureUrl = (String) payload.get("picture");
+
+            // Resolve User (Business Logic)
+            User user = resolveUser(email, providerId, name, pictureUrl);
+
+            boolean isActive = userService.isActive(user.getEmail());
+            if (!isActive) {
+                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
+            }
+
+            // Generate Token
+            String accessToken = securityUtils.createAccessToken(user);
+            String refreshToken = securityUtils.createRefreshToken(user);
+
+            tokenService.saveRefreshToken(user, refreshToken);
+
+            return LoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .user(LoginResponse.UserInfo.fromEntity(user))
+                    .build();
+
+        } catch (Exception e) {
+            throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500);
+        }
+    }
+
+    private User resolveUser(String email, String providerId, String name, String avatar) throws Exception {
+        // Đã từng login Google rồi -> Tìm thấy trong bảng SocialAccount
+        Optional<SocialAccount> socialAccountOpt =
+                socialAccountService.findByProviderAndProviderId("GOOGLE", providerId);
+
+        if (socialAccountOpt.isPresent()) {
+            return socialAccountOpt.get().getUser();
+        }
+
+        // Nếu chưa có trong bảng Social -> Check tiếp bảng User
+        User userByEmail = userService.findUserByEmail(email);
+        User user;
+
+        if (userByEmail != null) {
+            // Đã có tài khoản User (do đăng kí bằng email hoặc FB) -> Link vào
+            user = userByEmail;
+        } else {
+            // Tạo User mới
+            user = userService.createUserFromSocial(name, email, avatar);
+        }
+
+        // Sau khi có User (dù mới hay cũ) -> Tạo liên kết SocialAccount
+        socialAccountService.createSocialAccount(user, "GOOGLE", providerId);
+
+        return user;
     }
 }
