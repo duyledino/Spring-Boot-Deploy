@@ -26,8 +26,6 @@
 		<url/>
 	</scm>
 	<properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<java.version>21</java.version>
 		<spring-cloud.version>2025.0.1</spring-cloud.version>
 	</properties>
@@ -177,7 +175,7 @@
             <dependency>
                 <groupId>commons-fileupload</groupId>
                 <artifactId>commons-fileupload</artifactId>
-                <version>1.6.0</version>
+                <version>1.5.1</version>
             </dependency>
 
             <!-- AssertJ fix -->
@@ -204,13 +202,11 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
 				<configuration>
                     <annotationProcessorPaths>
                         <dependency>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
-                            <version>1.18.32</version>
                         </dependency>
 
                         <dependency>

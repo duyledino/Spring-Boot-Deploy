@@ -41,6 +41,10 @@ public class SecurityConfiguration {
 
     private final Environment env;
 
+//    public SecurityConfiguration(Environment env) {
+//        this.env = env;
+//    }
+
     private SecretKey getSecretKey() {
         byte[] keyBytes = Base64.from(jwtKey).decode();
         return new SecretKeySpec(keyBytes, 0, keyBytes.length, SecurityUtil.JWT_ALGORITHM.getName());
@@ -66,7 +70,8 @@ public class SecurityConfiguration {
                     "http://localhost:8080",
                     "http://localhost:3000",
                     "http://localhost:5173",
-                    "https://shop-me2-0-fe-u5cm.vercel.app"
+                    "https://shop-me2-0-fe-u5cm.vercel.app",
+                    "https://shop-me2-0-fe.vercel.app"
             ));
 
             // Methods: Chỉ cho phép các method RESTful chuẩn
