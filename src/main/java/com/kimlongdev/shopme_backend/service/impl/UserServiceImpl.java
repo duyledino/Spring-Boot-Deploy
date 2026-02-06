@@ -22,18 +22,19 @@ public class UserServiceImpl implements UserService {
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Override
-    public User findUserByEmail(String email) throws Exception {
-        User user=userRepository.findByEmail(email);
-
-        if(user==null) {
-            throw new Exception("user not exist with email " + email);
-        }
-        return user;
+    public User findUserByEmail(String email){
+        return userRepository.findByEmail(email);
     }
 
     @Override
     public Boolean existsUserByEmail(String email) {
         return userRepository.existsByEmail(email);
+    }
+
+    @Override
+    public boolean isActive(String email) {
+        User user = userRepository.findByEmail(email);
+        return user.getIsActive();
     }
 
     @Override
@@ -63,7 +64,25 @@ public class UserServiceImpl implements UserService {
         // 5. Tạo UserStats đi kèm (Bắt buộc)
         userStatService.createUserStat(savedUser);
 
+        return savedUser;
+    }
 
+    public User createUserFromSocial(String fullName, String email, String avatar) {
+
+        User newUser = User.builder()
+                .fullName(fullName)
+                .email(email)
+                .password("")
+                .role(String.valueOf(USER_ROLE.ROLE_CUSTOMER))
+                .avatar(avatar)
+                .isActive(true)
+                .build();
+
+        User savedUser = userRepository.save(newUser);
+
+        cartService.createNewCart(savedUser);
+
+        userStatService.createUserStat(savedUser);
 
         return savedUser;
     }

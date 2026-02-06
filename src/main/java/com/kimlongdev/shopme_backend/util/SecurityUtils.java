@@ -20,7 +20,7 @@ import java.util.Collections;
 import java.util.Optional;
 
 @Service
-public class SecurityUtil {
+public class SecurityUtils {
 
     // Thuật toán mã hóa mạnh HS512 (yêu cầu key > 64 bytes)
     public static final MacAlgorithm JWT_ALGORITHM = MacAlgorithm.HS512;
@@ -36,7 +36,7 @@ public class SecurityUtil {
 
     private final JwtEncoder jwtEncoder;
 
-    public SecurityUtil(JwtEncoder jwtEncoder) {
+    public SecurityUtils(JwtEncoder jwtEncoder) {
         this.jwtEncoder = jwtEncoder;
     }
 
@@ -88,7 +88,7 @@ public class SecurityUtil {
     public Jwt checkValidRefreshToken(String token) {
         // Tạo decoder cục bộ với Secret Key
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
-                getSecretKey()).macAlgorithm(SecurityUtil.JWT_ALGORITHM).build();
+                getSecretKey()).macAlgorithm(SecurityUtils.JWT_ALGORITHM).build();
         try {
             return jwtDecoder.decode(token);
         } catch (JwtException ex) {

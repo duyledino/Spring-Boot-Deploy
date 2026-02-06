@@ -3,6 +3,7 @@ package com.kimlongdev.shopme_backend.controller;
 import com.kimlongdev.shopme_backend.dto.request.LoginRequest;
 import com.kimlongdev.shopme_backend.dto.request.OtpRequest;
 import com.kimlongdev.shopme_backend.dto.request.RegisterRequest;
+import com.kimlongdev.shopme_backend.dto.request.SocialLoginRequest;
 import com.kimlongdev.shopme_backend.dto.response.ApiResponse;
 import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
@@ -58,6 +59,14 @@ public class AuthController {
     @PostMapping("/login-otp")
     public ResponseEntity<ApiResponse<Object>> loginOtp(
             @Valid @RequestBody OtpRequest req) {
+
+        boolean isActive = userService.isActive(req.getEmail());
+
+        if (!isActive) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "USER_BANNED", "Tài khoản của bạn đã bị khóa"));
+        }
+
         if(!userService.existsUserByEmail(req.getEmail())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
@@ -108,5 +117,11 @@ public class AuthController {
     @GetMapping("/account")
     public ResponseEntity<ApiResponse<LoginResponse.UserGetAccount>> getAccount() throws Exception {
         return ResponseEntity.ok(ApiResponse.success(authService.getMyAccount()));
+    }
+
+    @PostMapping("/login/social/google")
+    public ResponseEntity<LoginResponse> loginGoogle(@Valid @RequestBody SocialLoginRequest request) {
+        LoginResponse response = authService.loginWithGoogle(request);
+        return ResponseEntity.ok(response);
     }
 }
