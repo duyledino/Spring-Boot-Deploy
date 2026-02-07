@@ -60,17 +60,18 @@ public class AuthController {
     public ResponseEntity<ApiResponse<Object>> loginOtp(
             @Valid @RequestBody OtpRequest req) {
 
-        boolean isActive = userService.isActive(req.getEmail());
-
-        if (!isActive) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "USER_BANNED", "Tài khoản của bạn đã bị khóa"));
-        }
-
         if(!userService.existsUserByEmail(req.getEmail())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
         } else {
+
+            boolean isActive = userService.isActive(req.getEmail());
+
+            if (!isActive) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error(400, "USER_BANNED", "Tài khoản của bạn đã bị khóa"));
+            }
+
             otpService.generateAndSendOtp(req.getEmail());
 
             return ResponseEntity.ok(
