@@ -10,14 +10,13 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginResponse {
+    private UserInfo user;
 
     @JsonProperty("access_token")
     private String accessToken;
 
     @JsonProperty("refresh_token")
     private String refreshToken;
-
-    private UserInfo user;
 
     // ========================================================================
     // INNER CLASSES (Dùng static để không phụ thuộc instance cha)
