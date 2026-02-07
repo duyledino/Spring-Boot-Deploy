@@ -121,8 +121,8 @@ public class AuthController {
     }
 
     @PostMapping("/login/social/google")
-    public ResponseEntity<LoginResponse> loginGoogle(@Valid @RequestBody SocialLoginRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(@Valid @RequestBody SocialLoginRequest request) {
         LoginResponse response = authService.loginWithGoogle(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Google thành công"));
     }
 }
