@@ -41,7 +41,7 @@ public class AuthServiceImpl implements AuthService {
     // --- 1. LOGIN ---
     @Override
     @Transactional
-    public LoginResponse login(LoginRequest request, HttpServletResponse response) throws Exception {
+    public LoginResponse login(LoginRequest request, HttpServletResponse response) {
         // Spring Security Authenticate
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                 request.getEmail(), request.getPassword());
@@ -154,7 +154,7 @@ public class AuthServiceImpl implements AuthService {
 
     // --- GET ACCOUNT ---
     @Override
-    public LoginResponse.UserGetAccount getMyAccount() throws Exception {
+    public LoginResponse.UserGetAccount getMyAccount() {
         String email = SecurityUtils.getCurrentUserLogin()
                 .filter(username -> !username.equals("anonymousUser"))
                 .orElseThrow(() -> new BusinessException(
@@ -167,32 +167,32 @@ public class AuthServiceImpl implements AuthService {
         return new LoginResponse.UserGetAccount(LoginResponse.UserInfo.fromEntity(user));
     }
 
+    @Override
     @Transactional
     public LoginResponse loginWithGoogle(SocialLoginRequest request) {
         try {
-            // Verify Token
-            var payload = googleUtils.verifyToken(request.getToken());
-            if (payload == null)
+            GoogleUtils.GoogleUserInfo userInfo = googleUtils.getUserInfoFromAccessToken(request.getToken());
+
+            if (userInfo == null || userInfo.getEmail() == null) {
                 throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400);
+            }
 
-            String providerId = payload.getSubject();
-            String email = payload.getEmail();
-            String name = (String) payload.get("name");
-            String pictureUrl = (String) payload.get("picture");
+            String email = userInfo.getEmail();
+            String name = userInfo.getName();
+            String picture = userInfo.getPicture();
+            String providerId = userInfo.getId();
 
-            // Resolve User (Business Logic)
-            User user = resolveUser(email, providerId, name, pictureUrl);
+            // Business Logic
+            User user = resolveUser(email,providerId, name, picture);
 
             boolean isActive = userService.isActive(user.getEmail());
             if (!isActive) {
                 throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
             }
 
-            // Generate Token
+            // Generate tokens
             String accessToken = securityUtils.createAccessToken(user);
             String refreshToken = securityUtils.createRefreshToken(user);
-
-            tokenService.saveRefreshToken(user, refreshToken);
 
             return LoginResponse.builder()
                     .accessToken(accessToken)
@@ -205,7 +205,46 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private User resolveUser(String email, String providerId, String name, String avatar) throws Exception {
+//
+//    @Transactional
+//    public LoginResponse loginWithGoogle(SocialLoginRequest request) {
+//        try {
+//            // Verify Token
+//            var payload = googleUtils.verifyToken(request.getAccess_token());
+//            if (payload == null)
+//                throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400);
+//
+//            String providerId = payload.getSubject();
+//            String email = payload.getEmail();
+//            String name = (String) payload.get("name");
+//            String pictureUrl = (String) payload.get("picture");
+//
+//            // Resolve User (Business Logic)
+//            User user = resolveUser(email, providerId, name, pictureUrl);
+//
+//            boolean isActive = userService.isActive(user.getEmail());
+//            if (!isActive) {
+//                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
+//            }
+//
+//            // Generate Token
+//            String accessToken = securityUtils.createAccessToken(user);
+//            String refreshToken = securityUtils.createRefreshToken(user);
+//
+//            tokenService.saveRefreshToken(user, refreshToken);
+//
+//            return LoginResponse.builder()
+//                    .accessToken(accessToken)
+//                    .refreshToken(refreshToken)
+//                    .user(LoginResponse.UserInfo.fromEntity(user))
+//                    .build();
+//
+//        } catch (Exception e) {
+//            throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500);
+//        }
+//    }
+
+    private User resolveUser(String email, String providerId, String name, String avatar){
         // Đã từng login Google rồi -> Tìm thấy trong bảng SocialAccount
         Optional<SocialAccount> socialAccountOpt =
                 socialAccountService.findByProviderAndProviderId("GOOGLE", providerId);
