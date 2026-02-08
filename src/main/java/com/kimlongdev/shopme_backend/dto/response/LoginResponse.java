@@ -15,9 +15,6 @@ public class LoginResponse {
     @JsonProperty("access_token")
     private String accessToken;
 
-    @JsonProperty("refresh_token")
-    private String refreshToken;
-
     // ========================================================================
     // INNER CLASSES (Dùng static để không phụ thuộc instance cha)
     // ========================================================================

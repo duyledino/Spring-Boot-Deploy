@@ -40,16 +40,11 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<LoginResponse>> register(
-            @Valid @RequestBody RegisterRequest request
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletResponse response
     ) throws BusinessException {
 
-        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
-        if (!checkOTP) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
-        }
-        LoginResponse result = authService.register(request);
+        LoginResponse result = authService.register(request, response);
         return ResponseEntity.ok(ApiResponse.success(result, "Đăng ký thành công"));
     }
 
@@ -83,12 +78,6 @@ public class AuthController {
             HttpServletResponse response
     ) throws Exception {
 
-        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
-        if (!checkOTP) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
-        }
         LoginResponse result = authService.login(request, response);
         return ResponseEntity.ok(ApiResponse.success(result, "Đăng nhập thành công"));
     }
@@ -147,14 +136,7 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<?>> resetPassword(@RequestBody @Valid LoginRequest request) {
 
-        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
-        if (!checkOTP) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
-        }
-
-        boolean success = authService.resetPassword(request.getEmail(), request.getPassword());
+        boolean success = authService.resetPassword(request);
         if (!success) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(ApiResponse.error(400, "RESET_PASSWORD_FAILED", "Đặt lại mật khẩu thất bại"));

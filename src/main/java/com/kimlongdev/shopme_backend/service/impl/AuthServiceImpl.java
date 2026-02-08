@@ -8,10 +8,7 @@ import com.kimlongdev.shopme_backend.entity.user.SocialAccount;
 import com.kimlongdev.shopme_backend.entity.user.Token;
 import com.kimlongdev.shopme_backend.entity.user.User;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
-import com.kimlongdev.shopme_backend.service.AuthService;
-import com.kimlongdev.shopme_backend.service.SocialAccountService;
-import com.kimlongdev.shopme_backend.service.TokenService;
-import com.kimlongdev.shopme_backend.service.UserService;
+import com.kimlongdev.shopme_backend.service.*;
 import com.kimlongdev.shopme_backend.util.FacebookUtils;
 import com.kimlongdev.shopme_backend.util.GoogleUtils;
 import com.kimlongdev.shopme_backend.util.SecurityUtils;
@@ -39,11 +36,35 @@ public class AuthServiceImpl implements AuthService {
     private final GoogleUtils googleUtils;
     private final SocialAccountService socialAccountService;
     private final FacebookUtils facebookUtils;
+    private final OtpService otpService;
+
+    private LoginResponse buildLoginResponse(User user, HttpServletResponse response) {
+
+        // Sinh Token
+        String accessToken = securityUtils.createAccessToken(user);
+        String refreshToken = securityUtils.createRefreshToken(user);
+
+        // Lưu Refresh Token vào bảng 'tokens'
+        tokenService.saveRefreshToken(user, refreshToken);
+        tokenService.setRefreshTokenCookie(response, refreshToken);
+
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .user(LoginResponse.UserInfo.fromEntity(user))
+                .build();
+    }
+
 
     // --- 1. LOGIN ---
     @Override
     @Transactional
     public LoginResponse login(LoginRequest request, HttpServletResponse response) {
+
+        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
+
+        if (!checkOTP) {
+            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400);
+        }
         // Spring Security Authenticate
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                 request.getEmail(), request.getPassword());
@@ -52,43 +73,25 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userService.findUserByEmail(request.getEmail());
 
-        // Sinh Token
-        String accessToken = securityUtils.createAccessToken(user);
-        String refreshToken = securityUtils.createRefreshToken(user);
-
-        // Lưu Refresh Token vào bảng 'tokens'
-        tokenService.saveRefreshToken(user, refreshToken);
-
-        // E. Set Cookie HttpOnly
-        tokenService.setRefreshTokenCookie(response, refreshToken);
-
-        // F. Trả về Response
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .user(LoginResponse.UserInfo.fromEntity(user))
-                .build();
+        return buildLoginResponse(user, response);
     }
 
     // --- 2. REGISTER (Kèm Cart & Stats) ---
     @Override
     @Transactional
-    public LoginResponse register(RegisterRequest request) throws BusinessException {
+    public LoginResponse register(RegisterRequest request, HttpServletResponse response) throws BusinessException {
+        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
+
+        if (!checkOTP) {
+            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400);
+        }
+
         if (userService.existsUserByEmail(request.getEmail())) {
             throw new BusinessException("EMAIL_EXISTS", "Email đã được sử dụng", 400);
         }
         User user = userService.createUser(request);
 
-        // 2. Tự động sinh Token (Auto Login)
-        String accessToken = securityUtils.createAccessToken(user);
-        String refreshToken = securityUtils.createRefreshToken(user);
-
-        tokenService.saveRefreshToken(user, refreshToken);
-
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .user(LoginResponse.UserInfo.fromEntity(user))
-                .build();
+        return buildLoginResponse(user, response);
     }
 
     // --- REFRESH TOKEN ---
@@ -124,17 +127,8 @@ public class AuthServiceImpl implements AuthService {
         tokenService.rotateRefreshToken(storedToken);
 
         User user = storedToken.getUser();
-        String newAccessToken = securityUtils.createAccessToken(user);
-        String newRefreshToken = securityUtils.createRefreshToken(user);
 
-        tokenService.saveRefreshToken(user, newRefreshToken);
-        tokenService.setRefreshTokenCookie(response, newRefreshToken);
-
-        return LoginResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .user(LoginResponse.UserInfo.fromEntity(user))
-                .build();
+        return buildLoginResponse(user, response);
     }
 
     // --- LOGOUT ---
@@ -192,27 +186,14 @@ public class AuthServiceImpl implements AuthService {
                 throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
             }
 
-            // Generate tokens
-            String accessToken = securityUtils.createAccessToken(user);
-            String refreshToken = securityUtils.createRefreshToken(user);
-
-            // Lưu Refresh Token vào bảng 'tokens'
-            tokenService.saveRefreshToken(user, refreshToken);
-
-            // Set Cookie HttpOnly
-            tokenService.setRefreshTokenCookie(response, refreshToken);
-
-            return LoginResponse.builder()
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
-                    .user(LoginResponse.UserInfo.fromEntity(user))
-                    .build();
+            return buildLoginResponse(user, response);
 
         } catch (Exception e) {
             throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500);
         }
     }
 
+    @Override
     @Transactional
     public LoginResponse loginWithFacebook(SocialLoginRequest request, HttpServletResponse response) {
         try {
@@ -229,11 +210,14 @@ public class AuthServiceImpl implements AuthService {
             String name = userInfo.getName();
             String picture = userInfo.getPictureUrl();
 
-            // Fallback: Nếu không có email, ta có thể tự sinh email giả định hoặc báo lỗi
-            // Ở đây ví dụ tự sinh: id_facebook@facebook.com
             if (email == null || email.isEmpty()) {
-                email = providerId + "@facebook.com";
+                throw new BusinessException(
+                        "FACEBOOK_EMAIL_REQUIRED",
+                        "Vui lòng cấp quyền email cho ứng dụng",
+                        400
+                );
             }
+
 
             // Business Logic
             User user = resolveUser(email, providerId, name, picture, "FACEBOOK");
@@ -243,21 +227,7 @@ public class AuthServiceImpl implements AuthService {
                 throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
             }
 
-            // Generate tokens
-            String accessToken = securityUtils.createAccessToken(user);
-            String refreshToken = securityUtils.createRefreshToken(user);
-
-            // Lưu Refresh Token vào bảng 'tokens'
-            tokenService.saveRefreshToken(user, refreshToken);
-
-            // Set Cookie HttpOnly
-            tokenService.setRefreshTokenCookie(response, refreshToken);
-
-            return LoginResponse.builder()
-                    .accessToken(accessToken)
-                    .refreshToken(refreshToken)
-                    .user(LoginResponse.UserInfo.fromEntity(user))
-                    .build();
+            return buildLoginResponse(user, response);
 
         } catch (BusinessException be) {
             throw be;
@@ -292,11 +262,19 @@ public class AuthServiceImpl implements AuthService {
         return user;
     }
 
-    public boolean resetPassword(String email, String newPassword) {
-        User user = userService.findUserByEmail(email);
+    @Override
+    public boolean resetPassword(LoginRequest request) {
+
+        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
+
+        if (!checkOTP) {
+            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400);
+        }
+
+        User user = userService.findUserByEmail(request.getEmail());
         if (user == null) {
             throw new BusinessException("USER_NOT_FOUND", "Người dùng không tồn tại", 404);
         }
-        return userService.updateUserPassword(user, newPassword);
+        return userService.updateUserPassword(user, request.getPassword());
     }
 }
