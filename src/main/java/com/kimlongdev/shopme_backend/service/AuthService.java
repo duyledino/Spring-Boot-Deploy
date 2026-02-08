@@ -15,4 +15,5 @@ public interface AuthService {
     LoginResponse refreshToken(String refreshToken, HttpServletResponse response) throws BusinessException;
     LoginResponse.UserGetAccount getMyAccount() throws Exception;
     LoginResponse loginWithGoogle(SocialLoginRequest request);
+    LoginResponse loginWithFacebook(SocialLoginRequest request);
 }

@@ -169,4 +169,10 @@ public class AuthController {
         LoginResponse response = authService.loginWithGoogle(request);
         return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Google thành công"));
     }
+
+    @PostMapping("/login/social/facebook")
+    public ResponseEntity<ApiResponse<LoginResponse>> loginFacebook(@Valid @RequestBody SocialLoginRequest request) {
+        LoginResponse response = authService.loginWithFacebook(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Facebook thành công"));
+    }
 }
