@@ -205,45 +205,6 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-//
-//    @Transactional
-//    public LoginResponse loginWithGoogle(SocialLoginRequest request) {
-//        try {
-//            // Verify Token
-//            var payload = googleUtils.verifyToken(request.getAccess_token());
-//            if (payload == null)
-//                throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400);
-//
-//            String providerId = payload.getSubject();
-//            String email = payload.getEmail();
-//            String name = (String) payload.get("name");
-//            String pictureUrl = (String) payload.get("picture");
-//
-//            // Resolve User (Business Logic)
-//            User user = resolveUser(email, providerId, name, pictureUrl);
-//
-//            boolean isActive = userService.isActive(user.getEmail());
-//            if (!isActive) {
-//                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
-//            }
-//
-//            // Generate Token
-//            String accessToken = securityUtils.createAccessToken(user);
-//            String refreshToken = securityUtils.createRefreshToken(user);
-//
-//            tokenService.saveRefreshToken(user, refreshToken);
-//
-//            return LoginResponse.builder()
-//                    .accessToken(accessToken)
-//                    .refreshToken(refreshToken)
-//                    .user(LoginResponse.UserInfo.fromEntity(user))
-//                    .build();
-//
-//        } catch (Exception e) {
-//            throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500);
-//        }
-//    }
-
     private User resolveUser(String email, String providerId, String name, String avatar){
         // Đã từng login Google rồi -> Tìm thấy trong bảng SocialAccount
         Optional<SocialAccount> socialAccountOpt =
@@ -269,5 +230,13 @@ public class AuthServiceImpl implements AuthService {
         socialAccountService.createSocialAccount(user, "GOOGLE", providerId);
 
         return user;
+    }
+
+    public boolean resetPassword(String email, String newPassword) {
+        User user = userService.findUserByEmail(email);
+        if (user == null) {
+            throw new BusinessException("USER_NOT_FOUND", "Người dùng không tồn tại", 404);
+        }
+        return userService.updateUserPassword(user, newPassword);
     }
 }

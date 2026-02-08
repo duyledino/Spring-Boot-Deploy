@@ -12,6 +12,6 @@ public interface UserService {
     User findUserByEmail(String email);
     Boolean existsUserByEmail(String email);
     User createUserFromSocial(String fullName, String email, String avatar);
-
+    boolean updateUserPassword(User user, String newPassword);
     boolean isActive(@NotBlank(message = "Email is required") @Email(message = "Invalid email format") String email);
 }

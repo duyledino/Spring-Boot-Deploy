@@ -11,6 +11,7 @@ public interface AuthService {
     LoginResponse login(LoginRequest request, HttpServletResponse response) throws Exception;
     LoginResponse register(RegisterRequest request) throws BusinessException;
     void logout(String refreshToken, HttpServletResponse response);
+    boolean resetPassword(String email, String newPassword);
     LoginResponse refreshToken(String refreshToken, HttpServletResponse response) throws BusinessException;
     LoginResponse.UserGetAccount getMyAccount() throws Exception;
     LoginResponse loginWithGoogle(SocialLoginRequest request);

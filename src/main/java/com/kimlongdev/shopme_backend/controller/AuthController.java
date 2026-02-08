@@ -1,9 +1,6 @@
 package com.kimlongdev.shopme_backend.controller;
 
-import com.kimlongdev.shopme_backend.dto.request.LoginRequest;
-import com.kimlongdev.shopme_backend.dto.request.OtpRequest;
-import com.kimlongdev.shopme_backend.dto.request.RegisterRequest;
-import com.kimlongdev.shopme_backend.dto.request.SocialLoginRequest;
+import com.kimlongdev.shopme_backend.dto.request.*;
 import com.kimlongdev.shopme_backend.dto.response.ApiResponse;
 import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
@@ -27,7 +24,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register-otp")
-    public ResponseEntity<ApiResponse<Object>> registerOtp(
+    public ResponseEntity<ApiResponse<?>> registerOtp(
             @Valid @RequestBody OtpRequest req) {
         if(userService.existsUserByEmail(req.getEmail())) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -57,7 +54,7 @@ public class AuthController {
     }
 
     @PostMapping("/login-otp")
-    public ResponseEntity<ApiResponse<Object>> loginOtp(
+    public ResponseEntity<ApiResponse<?>> loginOtp(
             @Valid @RequestBody OtpRequest req) {
 
         if(!userService.existsUserByEmail(req.getEmail())) {
@@ -118,6 +115,53 @@ public class AuthController {
     @GetMapping("/account")
     public ResponseEntity<ApiResponse<LoginResponse.UserGetAccount>> getAccount() throws Exception {
         return ResponseEntity.ok(ApiResponse.success(authService.getMyAccount()));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<?>> forgotPassword(
+            @Valid @RequestBody OtpRequest req) {
+        if (!userService.existsUserByEmail(req.getEmail())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
+        } else {
+
+            boolean isActive = userService.isActive(req.getEmail());
+
+            if (!isActive) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.error(
+                                400,
+                                "USER_BANNED",
+                                "Tài khoản của bạn đã bị khóa"
+                        ));
+            }
+
+            otpService.generateAndSendOtp(req.getEmail());
+
+            return ResponseEntity.ok(
+                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+            );
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<?>> resetPassword(@RequestBody @Valid LoginRequest request) {
+
+        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
+
+        if (!checkOTP) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
+        }
+
+        boolean success = authService.resetPassword(request.getEmail(), request.getPassword());
+        if (!success) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ApiResponse.error(400, "RESET_PASSWORD_FAILED", "Đặt lại mật khẩu thất bại"));
+        }
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "Đặt lại mật khẩu thành công")
+        );
     }
 
     @PostMapping("/login/social/google")
