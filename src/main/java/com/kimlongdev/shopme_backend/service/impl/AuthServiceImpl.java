@@ -12,6 +12,7 @@ import com.kimlongdev.shopme_backend.service.AuthService;
 import com.kimlongdev.shopme_backend.service.SocialAccountService;
 import com.kimlongdev.shopme_backend.service.TokenService;
 import com.kimlongdev.shopme_backend.service.UserService;
+import com.kimlongdev.shopme_backend.util.FacebookUtils;
 import com.kimlongdev.shopme_backend.util.GoogleUtils;
 import com.kimlongdev.shopme_backend.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     private final SecurityUtils securityUtils;
     private final GoogleUtils googleUtils;
     private final SocialAccountService socialAccountService;
+    private final FacebookUtils facebookUtils;
 
     // --- 1. LOGIN ---
     @Override
@@ -183,7 +185,7 @@ public class AuthServiceImpl implements AuthService {
             String providerId = userInfo.getId();
 
             // Business Logic
-            User user = resolveUser(email,providerId, name, picture);
+            User user = resolveUser(email,providerId, name, picture, "GOOGLE");
 
             boolean isActive = userService.isActive(user.getEmail());
             if (!isActive) {
@@ -205,69 +207,84 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-//
-//    @Transactional
-//    public LoginResponse loginWithGoogle(SocialLoginRequest request) {
-//        try {
-//            // Verify Token
-//            var payload = googleUtils.verifyToken(request.getAccess_token());
-//            if (payload == null)
-//                throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400);
-//
-//            String providerId = payload.getSubject();
-//            String email = payload.getEmail();
-//            String name = (String) payload.get("name");
-//            String pictureUrl = (String) payload.get("picture");
-//
-//            // Resolve User (Business Logic)
-//            User user = resolveUser(email, providerId, name, pictureUrl);
-//
-//            boolean isActive = userService.isActive(user.getEmail());
-//            if (!isActive) {
-//                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
-//            }
-//
-//            // Generate Token
-//            String accessToken = securityUtils.createAccessToken(user);
-//            String refreshToken = securityUtils.createRefreshToken(user);
-//
-//            tokenService.saveRefreshToken(user, refreshToken);
-//
-//            return LoginResponse.builder()
-//                    .accessToken(accessToken)
-//                    .refreshToken(refreshToken)
-//                    .user(LoginResponse.UserInfo.fromEntity(user))
-//                    .build();
-//
-//        } catch (Exception e) {
-//            throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500);
-//        }
-//    }
+    @Transactional
+    public LoginResponse loginWithFacebook(SocialLoginRequest request) {
+        try {
+            // Lấy thông tin User từ Facebook Graph API
+            FacebookUtils.FacebookUserInfo userInfo = facebookUtils.getUserInfoFromAccessToken(request.getToken());
 
-    private User resolveUser(String email, String providerId, String name, String avatar){
-        // Đã từng login Google rồi -> Tìm thấy trong bảng SocialAccount
+            if (userInfo == null || userInfo.getId() == null) {
+                throw new BusinessException("INVALID_FACEBOOK_TOKEN", "Token Facebook không hợp lệ", 400);
+            }
+
+            // Facebook đôi khi không trả về email (nếu user đk bằng sđt), cần xử lý fallback
+            String email = userInfo.getEmail();
+            String providerId = userInfo.getId();
+            String name = userInfo.getName();
+            String picture = userInfo.getPictureUrl();
+
+            // Fallback: Nếu không có email, ta có thể tự sinh email giả định hoặc báo lỗi
+            // Ở đây ví dụ tự sinh: id_facebook@facebook.com
+            if (email == null || email.isEmpty()) {
+                email = providerId + "@facebook.com";
+            }
+
+            // Business Logic
+            User user = resolveUser(email, providerId, name, picture, "FACEBOOK");
+
+            boolean isActive = userService.isActive(user.getEmail());
+            if (!isActive) {
+                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
+            }
+
+            // 3. Generate tokens
+            String accessToken = securityUtils.createAccessToken(user);
+            String refreshToken = securityUtils.createRefreshToken(user);
+
+            return LoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .user(LoginResponse.UserInfo.fromEntity(user))
+                    .build();
+
+        } catch (BusinessException be) {
+            throw be;
+        } catch (Exception e) {
+            throw new BusinessException("FACEBOOK_LOGIN_FAILED", "Đăng nhập Facebook thất bại: " + e.getMessage(), 500);
+        }
+    }
+
+    private User resolveUser(String email, String providerId, String name, String avatar, String providerName) {
+
+        // Tìm trong bảng SocialAccount theo Provider Name dynamic
         Optional<SocialAccount> socialAccountOpt =
-                socialAccountService.findByProviderAndProviderId("GOOGLE", providerId);
+                socialAccountService.findByProviderAndProviderId(providerName, providerId);
 
         if (socialAccountOpt.isPresent()) {
             return socialAccountOpt.get().getUser();
         }
 
-        // Nếu chưa có trong bảng Social -> Check tiếp bảng User
+        // Nếu không tìm thấy, kiểm tra User theo email
         User userByEmail = userService.findUserByEmail(email);
         User user;
 
         if (userByEmail != null) {
-            // Đã có tài khoản User (do đăng kí bằng email hoặc FB) -> Link vào
             user = userByEmail;
         } else {
-            // Tạo User mới
             user = userService.createUserFromSocial(name, email, avatar);
         }
 
-        // Sau khi có User (dù mới hay cũ) -> Tạo liên kết SocialAccount
-        socialAccountService.createSocialAccount(user, "GOOGLE", providerId);
+        // Tạo liên kết SocialAccount với Provider Name dynamic
+        socialAccountService.createSocialAccount(user, providerName, providerId);
 
         return user;
+    }
+
+    public boolean resetPassword(String email, String newPassword) {
+        User user = userService.findUserByEmail(email);
+        if (user == null) {
+            throw new BusinessException("USER_NOT_FOUND", "Người dùng không tồn tại", 404);
+        }
+        return userService.updateUserPassword(user, newPassword);
     }
 }

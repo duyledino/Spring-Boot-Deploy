@@ -87,4 +87,14 @@ public class UserServiceImpl implements UserService {
         return savedUser;
     }
 
+    @Override
+    public boolean updateUserPassword(User user, String newPassword) {
+        if (user == null) {
+            return false;
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        return true;
+    }
+
 }
