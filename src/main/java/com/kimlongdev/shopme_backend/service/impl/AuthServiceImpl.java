@@ -171,7 +171,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public LoginResponse loginWithGoogle(SocialLoginRequest request) {
+    public LoginResponse loginWithGoogle(SocialLoginRequest request, HttpServletResponse response) {
         try {
             GoogleUtils.GoogleUserInfo userInfo = googleUtils.getUserInfoFromAccessToken(request.getToken());
 
@@ -196,6 +196,12 @@ public class AuthServiceImpl implements AuthService {
             String accessToken = securityUtils.createAccessToken(user);
             String refreshToken = securityUtils.createRefreshToken(user);
 
+            // Lưu Refresh Token vào bảng 'tokens'
+            tokenService.saveRefreshToken(user, refreshToken);
+
+            // Set Cookie HttpOnly
+            tokenService.setRefreshTokenCookie(response, refreshToken);
+
             return LoginResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
@@ -208,7 +214,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Transactional
-    public LoginResponse loginWithFacebook(SocialLoginRequest request) {
+    public LoginResponse loginWithFacebook(SocialLoginRequest request, HttpServletResponse response) {
         try {
             // Lấy thông tin User từ Facebook Graph API
             FacebookUtils.FacebookUserInfo userInfo = facebookUtils.getUserInfoFromAccessToken(request.getToken());
@@ -237,9 +243,15 @@ public class AuthServiceImpl implements AuthService {
                 throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
             }
 
-            // 3. Generate tokens
+            // Generate tokens
             String accessToken = securityUtils.createAccessToken(user);
             String refreshToken = securityUtils.createRefreshToken(user);
+
+            // Lưu Refresh Token vào bảng 'tokens'
+            tokenService.saveRefreshToken(user, refreshToken);
+
+            // Set Cookie HttpOnly
+            tokenService.setRefreshTokenCookie(response, refreshToken);
 
             return LoginResponse.builder()
                     .accessToken(accessToken)

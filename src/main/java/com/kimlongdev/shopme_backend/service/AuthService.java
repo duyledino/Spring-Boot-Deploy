@@ -14,6 +14,6 @@ public interface AuthService {
     boolean resetPassword(String email, String newPassword);
     LoginResponse refreshToken(String refreshToken, HttpServletResponse response) throws BusinessException;
     LoginResponse.UserGetAccount getMyAccount() throws Exception;
-    LoginResponse loginWithGoogle(SocialLoginRequest request);
-    LoginResponse loginWithFacebook(SocialLoginRequest request);
+    LoginResponse loginWithGoogle(SocialLoginRequest request, HttpServletResponse response) throws Exception;
+    LoginResponse loginWithFacebook(SocialLoginRequest request, HttpServletResponse response) throws Exception;
 }

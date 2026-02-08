@@ -165,14 +165,20 @@ public class AuthController {
     }
 
     @PostMapping("/login/social/google")
-    public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(@Valid @RequestBody SocialLoginRequest request) {
-        LoginResponse response = authService.loginWithGoogle(request);
+    public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(
+            @Valid @RequestBody SocialLoginRequest request,
+            HttpServletResponse res
+    ) throws Exception {
+        LoginResponse response = authService.loginWithGoogle(request, res);
         return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Google thành công"));
     }
 
     @PostMapping("/login/social/facebook")
-    public ResponseEntity<ApiResponse<LoginResponse>> loginFacebook(@Valid @RequestBody SocialLoginRequest request) {
-        LoginResponse response = authService.loginWithFacebook(request);
+    public ResponseEntity<ApiResponse<LoginResponse>> loginFacebook(
+            @Valid @RequestBody SocialLoginRequest request,
+            HttpServletResponse res
+    ) throws Exception {
+        LoginResponse response = authService.loginWithFacebook(request, res);
         return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Facebook thành công"));
     }
 }
