@@ -7,7 +7,7 @@ import com.kimlongdev.shopme_backend.repository.UserRepository;
 import com.kimlongdev.shopme_backend.service.CartService;
 import com.kimlongdev.shopme_backend.service.UserService;
 import com.kimlongdev.shopme_backend.service.UserStatService;
-import com.kimlongdev.shopme_backend.util.Enum.USER_ROLE;
+import com.kimlongdev.shopme_backend.util.Enum.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +44,8 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(
                     "EMAIL_EXISTS",
                     "Email đã được sử dụng",
-                    400
+                    400,
+                    null
             );
         }
 
@@ -52,7 +53,7 @@ public class UserServiceImpl implements UserService {
                 .fullName(guest.getFullName())
                 .email(guest.getEmail())
                 .password(passwordEncoder.encode(guest.getPassword()))
-                .role(String.valueOf(USER_ROLE.ROLE_CUSTOMER))
+                .role(String.valueOf(UserRole.ROLE_CUSTOMER))
                 .isActive(true)
                 .build();
 
@@ -73,7 +74,7 @@ public class UserServiceImpl implements UserService {
                 .fullName(fullName)
                 .email(email)
                 .password("")
-                .role(String.valueOf(USER_ROLE.ROLE_CUSTOMER))
+                .role(String.valueOf(UserRole.ROLE_CUSTOMER))
                 .avatar(avatar)
                 .isActive(true)
                 .build();

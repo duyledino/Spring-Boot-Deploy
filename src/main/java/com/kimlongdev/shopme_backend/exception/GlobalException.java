@@ -17,27 +17,30 @@ public class GlobalException {
 
     // Handle validation errors (@Valid trên request body)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Object>> handleValidationErrors() {
-        ApiResponse<Object> apiResponse = ApiResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .errorCode("VALIDATION_ERROR")
-                .message("Dữ liệu không hợp lệ")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
+    public ResponseEntity<ApiResponse<Object>> handleValidationErrors(
+            MethodArgumentNotValidException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "VALIDATION_ERROR",
+                        "Dữ liệu không hợp lệ"
+                ));
     }
 
     // Handle constraint violations (@Valid trên method parameters)
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Object>> handleConstraintViolation() {
-
-        ApiResponse<Object> apiResponse = ApiResponse.builder()
-                .status(HttpStatus.BAD_REQUEST.value())
-                .errorCode("VALIDATION_ERROR")
-                .message("Dữ liệu không hợp lệ")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(apiResponse);
+    public ResponseEntity<ApiResponse<Object>> handleConstraintViolation(
+            ConstraintViolationException ex
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(
+                        HttpStatus.BAD_REQUEST.value(),
+                        "VALIDATION_ERROR",
+                        "Dữ liệu không hợp lệ"
+                ));
     }
 
     // Handle 404 Not Found
@@ -45,13 +48,13 @@ public class GlobalException {
     public ResponseEntity<ApiResponse<Object>> handleNotFoundException(
             NoResourceFoundException ex
     ) {
-        ApiResponse<Object> apiResponse = ApiResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .errorCode("NOT_FOUND")
-                .message("URL không tồn tại: " + ex.getResourcePath())
-                .build();
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(apiResponse);
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(
+                        HttpStatus.NOT_FOUND.value(),
+                        "NOT_FOUND",
+                        "URL không tồn tại: " + ex.getResourcePath()
+                ));
     }
 
     // Handle tất cả exceptions khác
@@ -62,13 +65,13 @@ public class GlobalException {
         // Log để debug (không expose ra client)
         ex.printStackTrace();
 
-        ApiResponse<Object> apiResponse = ApiResponse.builder()
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .errorCode("INTERNAL_SERVER_ERROR")
-                .message("Đã xảy ra lỗi hệ thống")
-                .build();
-
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(apiResponse);
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(
+                        HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                        "INTERNAL_SERVER_ERROR",
+                        "Đã xảy ra lỗi hệ thống"
+                ));
     }
 
     // Handle BadCredentialsException (Sai email/mật khẩu)

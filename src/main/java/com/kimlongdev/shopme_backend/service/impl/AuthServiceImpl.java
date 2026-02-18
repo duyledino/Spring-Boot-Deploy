@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
         boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
 
         if (!checkOTP) {
-            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400);
+            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400, null);
         }
         // Spring Security Authenticate
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
@@ -83,11 +83,11 @@ public class AuthServiceImpl implements AuthService {
         boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
 
         if (!checkOTP) {
-            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400);
+            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400, null);
         }
 
         if (userService.existsUserByEmail(request.getEmail())) {
-            throw new BusinessException("EMAIL_EXISTS", "Email đã được sử dụng", 400);
+            throw new BusinessException("EMAIL_EXISTS", "Email đã được sử dụng", 400, null);
         }
         User user = userService.createUser(request);
 
@@ -102,16 +102,30 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(
                     "TOKEN_MISSING",
                     "Token không được để trống",
-                    401
+                    401,
+                    null
             );
         }
 
-        // Check Token trong DB
+        // Layer 1: Validate JWT signature & expiration (không cần DB)
+        try {
+            securityUtils.checkValidRefreshToken(refreshToken);
+        } catch (Exception e) {
+            throw new BusinessException(
+                    "INVALID_TOKEN",
+                    "Token không hợp lệ hoặc đã hết hạn",
+                    401,
+                    null
+            );
+        }
+
+        // Layer 2: Check Token trong DB (đảm bảo chưa bị revoke)
         Token storedToken = tokenService.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new BusinessException(
                         "TOKEN_NOT_FOUND",
                         "Token không tồn tại",
-                        401
+                        401,
+                        null
                 ));
 
 
@@ -119,7 +133,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(
                     "TOKEN_REVOKED",
                     "Phiên đăng nhập đã hết hạn",
-                    401
+                    401,
+                    null
             );
         }
 
@@ -156,7 +171,8 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new BusinessException(
                         "UNAUTHORIZED",
                         "Vui lòng đăng nhập để tiếp tục",
-                        401
+                        401,
+                        null
                 ));
 
         User user = userService.findUserByEmail(email);
@@ -170,7 +186,7 @@ public class AuthServiceImpl implements AuthService {
             GoogleUtils.GoogleUserInfo userInfo = googleUtils.getUserInfoFromAccessToken(request.getToken());
 
             if (userInfo == null || userInfo.getEmail() == null) {
-                throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400);
+                throw new BusinessException("INVALID_GOOGLE_TOKEN", "Token Google không hợp lệ", 400, null);
             }
 
             String email = userInfo.getEmail();
@@ -183,13 +199,13 @@ public class AuthServiceImpl implements AuthService {
 
             boolean isActive = userService.isActive(user.getEmail());
             if (!isActive) {
-                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
+                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400, null);
             }
 
             return buildLoginResponse(user, response);
 
         } catch (Exception e) {
-            throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500);
+            throw new BusinessException("GOOGLE_LOGIN_FAILED", "Đăng nhập Google thất bại: " + e.getMessage(), 500, null);
         }
     }
 
@@ -201,7 +217,7 @@ public class AuthServiceImpl implements AuthService {
             FacebookUtils.FacebookUserInfo userInfo = facebookUtils.getUserInfoFromAccessToken(request.getToken());
 
             if (userInfo == null || userInfo.getId() == null) {
-                throw new BusinessException("INVALID_FACEBOOK_TOKEN", "Token Facebook không hợp lệ", 400);
+                throw new BusinessException("INVALID_FACEBOOK_TOKEN", "Token Facebook không hợp lệ", 400, null);
             }
 
             // Facebook đôi khi không trả về email (nếu user đk bằng sđt), cần xử lý fallback
@@ -214,7 +230,8 @@ public class AuthServiceImpl implements AuthService {
                 throw new BusinessException(
                         "FACEBOOK_EMAIL_REQUIRED",
                         "Vui lòng cấp quyền email cho ứng dụng",
-                        400
+                        400,
+                        null
                 );
             }
 
@@ -224,7 +241,7 @@ public class AuthServiceImpl implements AuthService {
 
             boolean isActive = userService.isActive(user.getEmail());
             if (!isActive) {
-                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400);
+                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400, null);
             }
 
             return buildLoginResponse(user, response);
@@ -232,7 +249,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (BusinessException be) {
             throw be;
         } catch (Exception e) {
-            throw new BusinessException("FACEBOOK_LOGIN_FAILED", "Đăng nhập Facebook thất bại: " + e.getMessage(), 500);
+            throw new BusinessException("FACEBOOK_LOGIN_FAILED", "Đăng nhập Facebook thất bại: " + e.getMessage(), 500, null);
         }
     }
 
@@ -263,18 +280,24 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public boolean resetPassword(LoginRequest request) {
-
+    @Transactional
+    public void resetPassword(LoginRequest request) throws BusinessException {
+        // Validate OTP
         boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
         if (!checkOTP) {
-            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400);
+            throw new BusinessException("INVALID_OTP", "Mã OTP không hợp lệ", 400, null);
         }
 
+        // Validate user exists
         User user = userService.findUserByEmail(request.getEmail());
         if (user == null) {
-            throw new BusinessException("USER_NOT_FOUND", "Người dùng không tồn tại", 404);
+            throw new BusinessException("USER_NOT_FOUND", "Người dùng không tồn tại", 404, null);
         }
-        return userService.updateUserPassword(user, request.getPassword());
+
+        // Update password
+        boolean success = userService.updateUserPassword(user, request.getPassword());
+        if (!success) {
+            throw new BusinessException("RESET_PASSWORD_FAILED", "Đặt lại mật khẩu thất bại", 500, null);
+        }
     }
 }

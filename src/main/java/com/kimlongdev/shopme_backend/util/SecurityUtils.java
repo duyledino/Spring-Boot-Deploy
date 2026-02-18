@@ -40,6 +40,8 @@ public class SecurityUtils {
         this.jwtEncoder = jwtEncoder;
     }
 
+    private NimbusJwtDecoder refreshTokenDecoder;
+
     /**
      * Tạo Access Token (Ngắn hạn, chứa nhiều thông tin)
      */
@@ -85,15 +87,21 @@ public class SecurityUtils {
     /**
      * Validate Refresh Token thủ công (dành cho API /refresh-token)
      */
+    private NimbusJwtDecoder getRefreshTokenDecoder() {
+        if (this.refreshTokenDecoder == null) {
+            SecretKey secretKey = getSecretKey(); // Lấy key từ method cũ của bạn
+            this.refreshTokenDecoder = NimbusJwtDecoder.withSecretKey(secretKey)
+                    .macAlgorithm(SecurityUtils.JWT_ALGORITHM)
+                    .build();
+        }
+        return this.refreshTokenDecoder;
+    }
+
     public Jwt checkValidRefreshToken(String token) {
-        // Tạo decoder cục bộ với Secret Key
-        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
-                getSecretKey()).macAlgorithm(SecurityUtils.JWT_ALGORITHM).build();
         try {
-            return jwtDecoder.decode(token);
+            return getRefreshTokenDecoder().decode(token);
         } catch (JwtException ex) {
-            System.out.println(">>> Refresh Token invalid: " + ex.getMessage());
-            throw ex;
+            throw new JwtException("Invalid refresh token: " + ex.getMessage());
         }
     }
 

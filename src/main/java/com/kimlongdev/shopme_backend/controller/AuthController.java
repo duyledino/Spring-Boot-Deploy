@@ -6,11 +6,9 @@ import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
 import com.kimlongdev.shopme_backend.service.AuthService;
 import com.kimlongdev.shopme_backend.service.OtpService;
-import com.kimlongdev.shopme_backend.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,23 +17,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 public class AuthController {
 
-    private final UserService userService;
     private final OtpService otpService;
     private final AuthService authService;
 
     @PostMapping("/register-otp")
     public ResponseEntity<ApiResponse<?>> registerOtp(
             @Valid @RequestBody OtpRequest req) {
-        if(userService.existsUserByEmail(req.getEmail())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "EMAIL_ALREADY_IN_USE", "Email đã được sử dụng"));
-        } else {
-            otpService.generateAndSendOtp(req.getEmail());
-
-            return ResponseEntity.ok(
-                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
-            );
-        }
+        otpService.sendRegistrationOtp(req.getEmail());
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+        );
     }
 
     @PostMapping("/register")
@@ -50,26 +41,11 @@ public class AuthController {
 
     @PostMapping("/login-otp")
     public ResponseEntity<ApiResponse<?>> loginOtp(
-            @Valid @RequestBody OtpRequest req) {
-
-        if(!userService.existsUserByEmail(req.getEmail())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
-        } else {
-
-            boolean isActive = userService.isActive(req.getEmail());
-
-            if (!isActive) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(400, "USER_BANNED", "Tài khoản của bạn đã bị khóa"));
-            }
-
-            otpService.generateAndSendOtp(req.getEmail());
-
-            return ResponseEntity.ok(
-                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
-            );
-        }
+            @Valid @RequestBody LoginOtpRequest req) {
+        otpService.sendLoginOtp(req.getEmail(), req.getPassword());
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+        );
     }
 
     @PostMapping("/login")
@@ -109,38 +85,15 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<?>> forgotPassword(
             @Valid @RequestBody OtpRequest req) {
-        if (!userService.existsUserByEmail(req.getEmail())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
-        } else {
-
-            boolean isActive = userService.isActive(req.getEmail());
-
-            if (!isActive) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(
-                                400,
-                                "USER_BANNED",
-                                "Tài khoản của bạn đã bị khóa"
-                        ));
-            }
-
-            otpService.generateAndSendOtp(req.getEmail());
-
-            return ResponseEntity.ok(
-                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
-            );
-        }
+        otpService.sendPasswordResetOtp(req.getEmail());
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+        );
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<?>> resetPassword(@RequestBody @Valid LoginRequest request) {
-
-        boolean success = authService.resetPassword(request);
-        if (!success) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "RESET_PASSWORD_FAILED", "Đặt lại mật khẩu thất bại"));
-        }
+        authService.resetPassword(request);
         return ResponseEntity.ok(
                 ApiResponse.success(null, "Đặt lại mật khẩu thành công")
         );
