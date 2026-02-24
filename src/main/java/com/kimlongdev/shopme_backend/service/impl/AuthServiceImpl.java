@@ -1,15 +1,15 @@
 package com.kimlongdev.shopme_backend.service.impl;
 
 import com.kimlongdev.shopme_backend.dto.request.LoginRequest;
+import com.kimlongdev.shopme_backend.dto.request.LoginWithFaceBookRequest;
 import com.kimlongdev.shopme_backend.dto.request.RegisterRequest;
-import com.kimlongdev.shopme_backend.dto.request.SocialLoginRequest;
+import com.kimlongdev.shopme_backend.dto.request.LoginWithGoogleRequest;
 import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
 import com.kimlongdev.shopme_backend.entity.user.SocialAccount;
 import com.kimlongdev.shopme_backend.entity.user.Token;
 import com.kimlongdev.shopme_backend.entity.user.User;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
 import com.kimlongdev.shopme_backend.service.*;
-import com.kimlongdev.shopme_backend.util.FacebookUtils;
 import com.kimlongdev.shopme_backend.util.GoogleUtils;
 import com.kimlongdev.shopme_backend.util.SecurityUtils;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,7 +35,6 @@ public class AuthServiceImpl implements AuthService {
     private final SecurityUtils securityUtils;
     private final GoogleUtils googleUtils;
     private final SocialAccountService socialAccountService;
-    private final FacebookUtils facebookUtils;
     private final OtpService otpService;
 
     private LoginResponse buildLoginResponse(User user, HttpServletResponse response) {
@@ -181,7 +180,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public LoginResponse loginWithGoogle(SocialLoginRequest request, HttpServletResponse response) {
+    public LoginResponse loginWithGoogle(LoginWithGoogleRequest request, HttpServletResponse response) {
         try {
             GoogleUtils.GoogleUserInfo userInfo = googleUtils.getUserInfoFromAccessToken(request.getToken());
 
@@ -195,7 +194,7 @@ public class AuthServiceImpl implements AuthService {
             String providerId = userInfo.getId();
 
             // Business Logic
-            User user = resolveUser(email,providerId, name, picture, "GOOGLE");
+            User user = resolveUser(email, providerId, name, picture, "GOOGLE");
 
             boolean isActive = userService.isActive(user.getEmail());
             if (!isActive) {
@@ -211,37 +210,42 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public LoginResponse loginWithFacebook(SocialLoginRequest request, HttpServletResponse response) {
+    public LoginResponse loginWithFacebook(
+            LoginWithFaceBookRequest request,
+            HttpServletResponse response
+    ) {
         try {
-            // Lấy thông tin User từ Facebook Graph API
-            FacebookUtils.FacebookUserInfo userInfo = facebookUtils.getUserInfoFromAccessToken(request.getToken());
-
-            if (userInfo == null || userInfo.getId() == null) {
-                throw new BusinessException("INVALID_FACEBOOK_TOKEN", "Token Facebook không hợp lệ", 400, null);
-            }
-
-            // Facebook đôi khi không trả về email (nếu user đk bằng sđt), cần xử lý fallback
-            String email = userInfo.getEmail();
-            String providerId = userInfo.getId();
-            String name = userInfo.getName();
-            String picture = userInfo.getPictureUrl();
-
-            if (email == null || email.isEmpty()) {
+            // Validate request
+            if (request.getEmail() == null || request.getEmail().isEmpty()) {
                 throw new BusinessException(
                         "FACEBOOK_EMAIL_REQUIRED",
-                        "Vui lòng cấp quyền email cho ứng dụng",
+                        "Email là bắt buộc",
                         400,
                         null
                 );
             }
 
+            if (request.getProviderId() == null || request.getProviderId().isEmpty()) {
+                throw new BusinessException(
+                        "FACEBOOK_PROVIDER_ID_REQUIRED",
+                        "Provider ID là bắt buộc",
+                        400,
+                        null
+                );
+            }
 
-            // Business Logic
-            User user = resolveUser(email, providerId, name, picture, "FACEBOOK");
+            String email = request.getEmail();
+            String providerId = request.getProviderId();
+            String name = request.getName();
+            String picture = request.getAvatarUrl();
+            String provider = "FACEBOOK";
 
-            boolean isActive = userService.isActive(user.getEmail());
-            if (!isActive) {
-                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 400, null);
+            // Xử lý user
+            User user = resolveUser(email, providerId, name, picture, provider);
+
+            // Check active
+            if (!user.getIsActive()) {
+                throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 403, null);
             }
 
             return buildLoginResponse(user, response);
