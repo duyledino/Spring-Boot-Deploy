@@ -7,9 +7,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-
 @SpringBootApplication
 public class ShopmeBackendApplication {
 

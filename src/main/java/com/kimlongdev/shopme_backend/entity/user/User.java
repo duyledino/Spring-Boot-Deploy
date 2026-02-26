@@ -1,6 +1,6 @@
 package com.kimlongdev.shopme_backend.entity.user;
 
-import com.kimlongdev.shopme_backend.util.Enum.USER_ROLE;
+import com.kimlongdev.shopme_backend.util.Enum.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -37,7 +37,10 @@ public class User {
 
     @Column(nullable = false)
     @Builder.Default
-    private String role = String.valueOf(USER_ROLE.ROLE_CUSTOMER);
+    private String role = String.valueOf(UserRole.ROLE_CUSTOMER);
+
+//    @Enumerated(EnumType.STRING)
+//    private USER_ROLE roleCustomer = USER_ROLE.ROLE_CUSTOMER;
 
     @Column(name = "is_active")
     @Builder.Default

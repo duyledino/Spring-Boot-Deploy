@@ -6,11 +6,9 @@ import com.kimlongdev.shopme_backend.dto.response.LoginResponse;
 import com.kimlongdev.shopme_backend.exception.BusinessException;
 import com.kimlongdev.shopme_backend.service.AuthService;
 import com.kimlongdev.shopme_backend.service.OtpService;
-import com.kimlongdev.shopme_backend.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,62 +17,35 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 public class AuthController {
 
-    private final UserService userService;
     private final OtpService otpService;
     private final AuthService authService;
 
     @PostMapping("/register-otp")
     public ResponseEntity<ApiResponse<?>> registerOtp(
             @Valid @RequestBody OtpRequest req) {
-        if(userService.existsUserByEmail(req.getEmail())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "EMAIL_ALREADY_IN_USE", "Email đã được sử dụng"));
-        } else {
-            otpService.generateAndSendOtp(req.getEmail());
-
-            return ResponseEntity.ok(
-                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
-            );
-        }
+        otpService.sendRegistrationOtp(req.getEmail());
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+        );
     }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<LoginResponse>> register(
-            @Valid @RequestBody RegisterRequest request
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletResponse response
     ) throws BusinessException {
 
-        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
-        if (!checkOTP) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
-        }
-        LoginResponse result = authService.register(request);
+        LoginResponse result = authService.register(request, response);
         return ResponseEntity.ok(ApiResponse.success(result, "Đăng ký thành công"));
     }
 
     @PostMapping("/login-otp")
     public ResponseEntity<ApiResponse<?>> loginOtp(
-            @Valid @RequestBody OtpRequest req) {
-
-        if(!userService.existsUserByEmail(req.getEmail())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
-        } else {
-
-            boolean isActive = userService.isActive(req.getEmail());
-
-            if (!isActive) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(400, "USER_BANNED", "Tài khoản của bạn đã bị khóa"));
-            }
-
-            otpService.generateAndSendOtp(req.getEmail());
-
-            return ResponseEntity.ok(
-                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
-            );
-        }
+            @Valid @RequestBody LoginOtpRequest req) {
+        otpService.sendLoginOtp(req.getEmail(), req.getPassword());
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+        );
     }
 
     @PostMapping("/login")
@@ -83,12 +54,6 @@ public class AuthController {
             HttpServletResponse response
     ) throws Exception {
 
-        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
-        if (!checkOTP) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
-        }
         LoginResponse result = authService.login(request, response);
         return ResponseEntity.ok(ApiResponse.success(result, "Đăng nhập thành công"));
     }
@@ -120,59 +85,35 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<?>> forgotPassword(
             @Valid @RequestBody OtpRequest req) {
-        if (!userService.existsUserByEmail(req.getEmail())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "EMAIL_IS_NOT_EXIST", "Email không tồn tại"));
-        } else {
-
-            boolean isActive = userService.isActive(req.getEmail());
-
-            if (!isActive) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(ApiResponse.error(
-                                400,
-                                "USER_BANNED",
-                                "Tài khoản của bạn đã bị khóa"
-                        ));
-            }
-
-            otpService.generateAndSendOtp(req.getEmail());
-
-            return ResponseEntity.ok(
-                    ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
-            );
-        }
+        otpService.sendPasswordResetOtp(req.getEmail());
+        return ResponseEntity.ok(
+                ApiResponse.success(null, "OTP đã được gửi đến email của bạn")
+        );
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<?>> resetPassword(@RequestBody @Valid LoginRequest request) {
-
-        boolean checkOTP = otpService.validateOtp(request.getEmail(), request.getOtp());
-
-        if (!checkOTP) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "INVALID_OTP", "OTP không hợp lệ hoặc đã hết hạn"));
-        }
-
-        boolean success = authService.resetPassword(request.getEmail(), request.getPassword());
-        if (!success) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(ApiResponse.error(400, "RESET_PASSWORD_FAILED", "Đặt lại mật khẩu thất bại"));
-        }
+        authService.resetPassword(request);
         return ResponseEntity.ok(
                 ApiResponse.success(null, "Đặt lại mật khẩu thành công")
         );
     }
 
     @PostMapping("/login/social/google")
-    public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(@Valid @RequestBody SocialLoginRequest request) {
-        LoginResponse response = authService.loginWithGoogle(request);
+    public ResponseEntity<ApiResponse<LoginResponse>> loginGoogle(
+            @Valid @RequestBody SocialLoginRequest request,
+            HttpServletResponse res
+    ) throws Exception {
+        LoginResponse response = authService.loginWithGoogle(request, res);
         return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Google thành công"));
     }
 
     @PostMapping("/login/social/facebook")
-    public ResponseEntity<ApiResponse<LoginResponse>> loginFacebook(@Valid @RequestBody SocialLoginRequest request) {
-        LoginResponse response = authService.loginWithFacebook(request);
+    public ResponseEntity<ApiResponse<LoginResponse>> loginFacebook(
+            @Valid @RequestBody SocialLoginRequest request,
+            HttpServletResponse res
+    ) throws Exception {
+        LoginResponse response = authService.loginWithFacebook(request, res);
         return ResponseEntity.ok(ApiResponse.success(response, "Đăng nhập Facebook thành công"));
     }
 }

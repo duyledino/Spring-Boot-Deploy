@@ -5,7 +5,6 @@ import com.kimlongdev.shopme_backend.entity.user.User;
 import com.kimlongdev.shopme_backend.util.Enum.OrderStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

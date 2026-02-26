@@ -1,10 +1,14 @@
 package com.kimlongdev.shopme_backend.service.impl;
 
+import com.kimlongdev.shopme_backend.entity.user.User;
+import com.kimlongdev.shopme_backend.exception.BusinessException;
 import com.kimlongdev.shopme_backend.service.OtpService;
+import com.kimlongdev.shopme_backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -16,10 +20,12 @@ public class OtpServiceImpl implements OtpService {
 
     private final StringRedisTemplate redisTemplate;
     private final JavaMailSender mailSender;
+    private final UserService userService;
 
     // Cấu hình: OTP hết hạn sau 5 phút
     private static final long OTP_TTL_MINUTES = 5;
     private static final String OTP_PREFIX = "OTP:";
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public void generateAndSendOtp(String email) {
         String otp = generateRandomOtp();
@@ -47,6 +53,53 @@ public class OtpServiceImpl implements OtpService {
         // Case 3: OTP đúng -> Xóa ngay lập tức để tránh dùng lại (Replay Attack)
         redisTemplate.delete(redisKey);
         return true;
+    }
+
+    @Override
+    public void sendRegistrationOtp(String email) {
+        // Validate: Email đã tồn tại
+        if (userService.existsUserByEmail(email)) {
+            throw new BusinessException("EMAIL_ALREADY_IN_USE", "Email đã được sử dụng", 400, null);
+        }
+
+        generateAndSendOtp(email);
+    }
+
+    @Override
+    public void sendLoginOtp(String email, String password) {
+        // Validate: Email không tồn tại
+        if (!userService.existsUserByEmail(email)) {
+            throw new BusinessException("EMAIL_IS_NOT_EXIST", "Email không tồn tại", 400, null);
+        }
+
+        User user = userService.findUserByEmail(email);
+
+        // Validate: Password (dùng matches, KHÔNG dùng encode + equals)
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new BusinessException("INVALID_CREDENTIALS", "Email hoặc mật khẩu không đúng", 401, null);
+        }
+
+        // Validate: Tài khoản bị khóa
+        if (!user.getIsActive()) {
+            throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 403, null);
+        }
+
+        generateAndSendOtp(email);
+    }
+
+    @Override
+    public void sendPasswordResetOtp(String email) {
+        // Validate: Email không tồn tại
+        if (!userService.existsUserByEmail(email)) {
+            throw new BusinessException("EMAIL_IS_NOT_EXIST", "Email không tồn tại", 400, null);
+        }
+
+        // Validate: Tài khoản bị khóa
+        if (!userService.isActive(email)) {
+            throw new BusinessException("USER_BANNED", "Tài khoản của bạn đã bị khóa", 403, null);
+        }
+
+        generateAndSendOtp(email);
     }
 
     // --- Private Helpers ---

@@ -13,8 +13,8 @@ public class BusinessException extends RuntimeException {
     // 500: Internal Server Error
     private final int statusCode;
 
-    public BusinessException(String errorCode, String message, int statusCode) {
-        super(message);
+    public BusinessException(String errorCode, String message, int statusCode, Throwable cause) {
+        super(message, cause);
         this.errorCode = errorCode;
         this.statusCode = statusCode;
     }

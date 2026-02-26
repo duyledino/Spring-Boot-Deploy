@@ -134,9 +134,9 @@ public class SecurityConfiguration {
                         // 1. PUBLIC
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
-                                "/api/products/**",
-                                "/api/categories/**",
-                                "/api/brands/**"
+                                "/api/v1/products/**",
+                                "/api/v1/categories/**",
+                                "/api/v1.brands/**"
                         ).permitAll()
 
                         // 2. SWAGGER (DEV ONLY)
@@ -147,11 +147,11 @@ public class SecurityConfiguration {
                         ).access((authentication, context) -> new AuthorizationDecision(isDev))
 
                         // 3. ADMIN / SELLER (Role Based)
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/seller/**").hasRole("SELLER")
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/seller/**").hasRole("SELLER")
 
                         // 4. AUTHENTICATED
-                        .requestMatchers("/api/**").authenticated()
+                        .requestMatchers("/api/v1/**").authenticated()
 
                         // 5. OTHERS
                         .anyRequest().permitAll()
